@@ -41,14 +41,27 @@ NVCCCompiler::NVCCCompiler(std::string base_path, std::string comm_id):
 
     // Init the flags to compiler
     std::string sm_arch_flags = convert_to_nvcc_arch_flags(SM_ARCH);
+    std::string ccbin = get_env("CUDAHOSTCXX");
+    if (ccbin.empty()) {
+        // Prefer system g++ over conda's cross-compiler which may be incompatible with nvcc
+        if (std::filesystem::exists("/usr/bin/g++")) {
+            ccbin = "/usr/bin/g++";
+        }
+    }
     std::string flags = "-std=c++17 " + sm_arch_flags +
             " -O3 --expt-relaxed-constexpr "
-            " -Xcompiler -fPIC -shared ";
+            " -Xcompiler -fPIC -shared " +
+            (ccbin.empty() ? "" : " -ccbin " + ccbin + " ");
     // Add the include path of the hybrid-ep library
     std::string include = " -I" + base_path + "/backend" 
             + " -I" + get_env("CUDA_HOME") + "/include ";
     // Add the library path of the hybrid-ep library
-    std::string library = "-L" + get_env("CUDA_HOME") + "/lib64 -lcudart ";
+    std::string cuda_home = get_env("CUDA_HOME");
+    std::string cuda_lib_dir = cuda_home + "/lib64";
+    if (!std::filesystem::exists(cuda_lib_dir)) {
+        cuda_lib_dir = cuda_home + "/lib";
+    }
+    std::string library = "-L" + cuda_lib_dir + " -lcudart ";
 
     intra_node_flags = flags + " " + include + " " + library;
 

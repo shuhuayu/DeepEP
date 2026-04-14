@@ -76,7 +76,7 @@ def get_extension_hybrid_ep_cpp():
         os.path.join(current_dir, "csrc/hybrid_ep/backend/"),
     ]
     library_dirs = []
-    libraries = ["cuda", "nvtx3interop"]
+    libraries = ["cuda"]
     extra_objects = []
     runtime_library_dirs = []
     extra_link_args = []

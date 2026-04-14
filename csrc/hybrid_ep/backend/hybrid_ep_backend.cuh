@@ -7,6 +7,31 @@
 #include <assert.h>
 #include <cuda_bf16.h>
 #include <cuda/ptx>
+
+// Polyfill: cp_async_bulk(space_shared, space_global, ...) was added in CUDA 13.0.
+// For CUDA 12.x, provide the overload using inline PTX assembly.
+#if __cccl_ptx_isa < 860
+namespace cuda { namespace ptx { inline namespace __4 {
+template <typename = void>
+_CCCL_DEVICE static inline void cp_async_bulk(
+  space_shared_t,
+  space_global_t,
+  void* __dstMem,
+  const void* __srcMem,
+  const ::cuda::std::uint32_t& __size,
+  ::cuda::std::uint64_t* __smem_bar)
+{
+  asm volatile(
+    "cp.async.bulk.shared::cta.global.mbarrier::complete_tx::bytes [%0], [%1], %2, [%3];"
+    :
+    : "r"(static_cast<unsigned>(__cvta_generic_to_shared(__dstMem))),
+      "l"(__srcMem),
+      "r"(__size),
+      "r"(static_cast<unsigned>(__cvta_generic_to_shared(__smem_bar)))
+    : "memory");
+}
+}}} // namespace cuda::ptx
+#endif
 #ifdef HYBRID_EP_BUILD_MULTINODE_ENABLE
 #ifndef USE_NIXL
 #include "doca_gpunetio_host.h"
